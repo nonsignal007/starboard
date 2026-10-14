@@ -41,7 +41,7 @@ extension AppDelegate {
             hintPanel?.orderOut(nil)
             return
         }
-        guard panel.isVisible, lastPresenceUntracked, !isExpanded else {
+        guard panel.isVisible, lastPresenceUntracked, !isExpanded, !isFreelyPlaced else {
             hint.orderOut(nil)
             return
         }

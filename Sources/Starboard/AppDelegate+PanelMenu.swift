@@ -18,6 +18,12 @@ extension AppDelegate {
             NSMenuItem(
                 title: "Settings…",
                 action: #selector(toggleSettingsPanel(_:)), keyEquivalent: ""))
+        if isFreelyPlaced {
+            menu.addItem(
+                NSMenuItem(
+                    title: "Snap Back to Dock",
+                    action: #selector(snapBackToDock(_:)), keyEquivalent: ""))
+        }
         menu.addItem(.separator())
         menu.addItem(
             NSMenuItem(

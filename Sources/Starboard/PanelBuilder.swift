@@ -54,7 +54,8 @@ enum PanelBuilder {
         terminal.nativeForegroundColor = theme.foregroundColor
         terminal.layer?.backgroundColor = NSColor.clear.cgColor
         terminal.installColors(theme.ansiPalette)
-        terminal.toolTip = "⌘E expand · ⌘T theme · ⌘+/⌘− font size · ⌘Q quit"
+        terminal.toolTip =
+            "⌘drag move · ⌘⌥drag resize · ⌘E expand · ⌘T theme · ⌘+/⌘− font size · ⌘Q quit"
 
         effectView.addSubview(terminal)
 
