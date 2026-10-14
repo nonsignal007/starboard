@@ -49,6 +49,9 @@ extension AppDelegate {
     }
 
     func collapsedGeometry(for presence: DockPresence) -> NSRect {
+        if let free = PanelSettings.freeFrame {
+            return reachableFrame(free, fallingBackTo: presence.host)
+        }
         switch presence {
         case .revealed(let tray, let host):
             return gluedFrame(tray: tray, on: host)
@@ -59,6 +62,17 @@ extension AppDelegate {
         case .untracked(let host):
             return fallbackFrame(on: host)
         }
+    }
+
+    func reachableFrame(_ frame: NSRect, fallingBackTo host: NSScreen) -> NSRect {
+        if NSScreen.screens.contains(where: { $0.frame.intersects(frame) }) { return frame }
+        let visible = host.visibleFrame
+        let width = min(frame.width, visible.width)
+        let height = min(frame.height, visible.height)
+        return NSRect(
+            x: visible.minX + (visible.width - width) / 2,
+            y: visible.minY + (visible.height - height) / 2,
+            width: width, height: height)
     }
 
     func gluedFrame(tray: NSRect, on host: NSScreen) -> NSRect {

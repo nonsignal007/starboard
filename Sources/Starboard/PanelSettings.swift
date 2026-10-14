@@ -7,6 +7,7 @@ enum PanelSettings {
     private static let fontSizeKey = "settings.fontSize"
     private static let extraHeightKey = "settings.extraHeight"
     private static let stayVisibleWhenDockHidesKey = "settings.stayVisibleWhenDockHides"
+    private static let freeFrameKey = "settings.freeFrame"
 
     static var cornerRadius: CGFloat {
         get {
@@ -61,6 +62,24 @@ enum PanelSettings {
     static var stayVisibleWhenDockHides: Bool {
         get { UserDefaults.standard.bool(forKey: stayVisibleWhenDockHidesKey) }
         set { UserDefaults.standard.set(newValue, forKey: stayVisibleWhenDockHidesKey) }
+    }
+
+    static var freeFrame: NSRect? {
+        get {
+            guard let encoded = UserDefaults.standard.string(forKey: freeFrameKey) else {
+                return nil
+            }
+            let rect = NSRectFromString(encoded)
+            guard rect.width > 0, rect.height > 0 else { return nil }
+            return rect
+        }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(NSStringFromRect(newValue), forKey: freeFrameKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: freeFrameKey)
+            }
+        }
     }
 
     static func resetToDefaults() {

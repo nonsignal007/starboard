@@ -8,6 +8,7 @@ extension AppDelegate {
     static let armingEdgeStrip: CGFloat = 4
 
     func tick() {
+        guard !isRepositioning else { return }
         tickCount += 1
 
         if !cachedDockAutoHides || tickCount % Self.coarseTickRatio == 0 {
@@ -78,7 +79,7 @@ extension AppDelegate {
         guard let presence = resolveDockPresence() else {
             debugLog("screens", "no screen at all; falling back\(isHeld ? " (held)" : "")")
             lastPresenceUntracked = true
-            guard !isHeld else { return }
+            guard !isHeld, !isFreelyPlaced else { return }
             applyFrame(
                 NSRect(x: 0, y: 0, width: Self.fallbackWidth, height: Self.fallbackHeight))
             return
@@ -90,6 +91,14 @@ extension AppDelegate {
         defer { updateFallbackHintVisibility() }
         let exempt = panel.isKeyWindow || isExpanded
         lastPresenceUntracked = presence.isUntracked
+
+        if isFreelyPlaced {
+            isFrozen = false
+            wasConcealed = false
+            if !panel.isVisible { panel.orderFrontRegardless() }
+            applyFrame(frame(for: presence))
+            return
+        }
 
         debugLog(
             "state",
@@ -161,11 +170,7 @@ extension AppDelegate {
         guard panel.frame != frame else { return }
         debugLog("frame", "\(frame)")
 
-        let layoutTerminal = {
-            self.terminalView.frame = TerminalLayout.contentFrame(
-                in: NSRect(origin: .zero, size: frame.size), font: self.terminalView.font)
-            self.positionFallbackHint()
-        }
+        let layoutTerminal = { self.layOutPanelContents(for: frame.size) }
 
         guard animated else {
             panel.setFrame(frame, display: true)
@@ -182,6 +187,12 @@ extension AppDelegate {
     }
 
     func collapseTarget(for presence: DockPresence?) -> NSRect {
+        if let free = PanelSettings.freeFrame {
+            guard let host = presence?.host ?? mainDisplayScreen() ?? NSScreen.screens.first
+            else { return free }
+            return reachableFrame(free, fallingBackTo: host)
+        }
+
         var held = isFrozen
         if case .concealed? = presence { held = true }
 

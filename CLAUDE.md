@@ -22,8 +22,8 @@ Plain SPM executable, no Xcode project, no Info.plist — `main.swift` sets
 is split across `AppDelegate+*.swift` extensions by concern (the invisible
 main menu bar, the clickable popup panel menu, Dock-tracking state
 machine, Dock-relative geometry, screen resolution, Dock Accessibility
-reads, debug logging, theme switching, panel appearance settings, the
-Accessibility fallback hint); `DockPresence`, `PanelBuilder`,
+reads, debug logging, theme switching, panel appearance settings, free
+placement, the Accessibility fallback hint); `DockPresence`, `PanelBuilder`,
 `TerminalTheme`, `PanelSettings`, `Theme`, `ThemePickerView`,
 `SettingsPanelView`, `TerminalLayout`, `ShellEnvironment`,
 `FallbackHintPanel`, and `Mascot` are standalone. Read the code for how it
@@ -47,6 +47,23 @@ main menu bar (they work for the same reason Cmd+E/T/Q do — see the
 gotcha below). Panel width was deliberately left out of this — the whole
 product idea is gluing to the Dock's tray width, so that one stays a
 hardcoded constant in `TerminalLayout`.
+
+⌘-drag moves the panel and ⌘⌥-drag resizes it (top-left anchored,
+floor of 160×48 in `KeyablePanel.minFreeSize`). Either gesture pins it
+to a "free" frame — origin *and* size, stored whole via
+`PanelSettings.freeFrame`. While that value exists the panel is
+detached from the Dock entirely: `collapsedGeometry` returns it in
+place of `gluedFrame`/`fallbackFrame`, and `evaluate` takes an early
+branch that skips the auto-hide state machine, so the panel no longer
+conceals along with an auto-hiding Dock. `reachableFrame` re-centres it
+on the host screen if a display change strands it off every screen.
+"Snap Back to Dock" in the panel menu clears the value and restores the
+original behaviour; that item only appears while a free frame is set.
+This is the one path where panel width *is* user-controlled — gluing to
+the Dock's tray width is still exactly what happens whenever
+`freeFrame` is nil, which is why `resetToDefaults` deliberately leaves
+`freeFrame` alone (it isn't an appearance setting and isn't exposed in
+the Settings panel).
 
 `Mascot.swift` is a SwiftUI rewrite of the fallback hint's mascot — same
 16×13 grid, same walk/blink/wandering-gaze animation as before, but
@@ -131,6 +148,33 @@ self-contained copy, not a package import — keep it that way.
   apart. If a future mascot host in this repo still doesn't animate,
   suspect the host's plumbing before suspecting this pattern — it's known
   to work here.
+- **Free placement intercepts the mouse in `KeyablePanel.sendEvent`
+  before `super`**, so SwiftTerm never sees a ⌘-click and its own text
+  selection is untouched. Both move and resize run a hand-rolled
+  `NSApp.nextEvent(matching:…inMode: .eventTracking)` loop rather than
+  `NSWindow.performDrag(with:)`: `performDrag` is documented as
+  *user-initiated* movement while the panel sets `isMovable = false`,
+  so leaning on it would mean flipping that flag and trusting an
+  interaction AppKit doesn't really support on a borderless
+  `.nonactivatingPanel`. The manual loop is deterministic, and it
+  covers resizing too — which AppKit gives a borderless window no path
+  to at all. A ⌘-click is swallowed either way (the loop has already
+  consumed the mouse-down, so there's nothing sane to forward on), but
+  it only *pins* past a 3pt `dragThreshold` — without that, one stray
+  ⌘-click silently detaches the panel from the Dock for good.
+- **The tracking timer runs in `.common` mode, which includes
+  `.eventTracking`, so it keeps firing throughout a drag** and would
+  yank the panel back to the last saved frame mid-gesture.
+  `isRepositioning` gates `tick()` and is set on mouse-*down*, before
+  the loop starts — setting it on mouse-up would be far too late.
+- **A ⌘-drag or ⌘⌥-drag while expanded (⌘E) leaves expanded mode** and
+  pins the panel where it was dropped, at whatever size it had. Keeping
+  `isExpanded` true instead means the next tick restores the expanded
+  frame and the gesture silently undoes itself.
+- **The Accessibility fallback hint is suppressed while a free frame is
+  set.** Its copy is entirely about gluing to the Dock ("Not glued to
+  Dock? …"), and a freely-placed panel needs no Accessibility grant at
+  all, so surfacing it there is simply wrong.
 
 ## Known open items
 

@@ -4,7 +4,7 @@ import CoreGraphics
 import SwiftTerm
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var panel: NSPanel!
+    var panel: KeyablePanel!
     var terminalView: LocalProcessTerminalView!
     var tintView: NSView!
     var menuButton: NSButton!
@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     var isExpanded = false
     var isFrozen = false
+    var isRepositioning = false
     var wasConcealed = false
     var expansionScreenID: CGDirectDisplayID?
     var collapsedFrame: NSRect?
@@ -43,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshCoarseCaches()
         let initialPresence = resolveDockPresence()
         let initialFrame =
-            initialPresence.map { frame(for: $0) }
+            initialPresence.map { frame(for: $0) } ?? PanelSettings.freeFrame
             ?? NSRect(x: 0, y: 0, width: Self.fallbackWidth, height: Self.fallbackHeight)
         collapsedFrame = initialFrame
         lastPresenceUntracked = initialPresence?.isUntracked ?? true
@@ -55,8 +56,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.terminalView = terminal
         self.tintView = tintView
         self.menuButton = menuButton
+        installFreePlacementHandlers()
 
-        if case .concealed? = initialPresence {
+        if case .concealed? = initialPresence, !isFreelyPlaced {
             debugLog("visibility", "launching concealed (auto-hiding Dock is off screen)")
         } else {
             panel.orderFrontRegardless()
